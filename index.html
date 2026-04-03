@@ -2,88 +2,67 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Ultimate Collaborative Board</title>
+    <title>Fixed Padlet - Horizontal Buttons</title>
     <style>
-        :root { --f-blue: #18a0fb; --f-red: #ff4d4f; --bg-gray: #f3f4f6; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--bg-gray); font-family: 'Pretendard', sans-serif; overflow: auto; }
-        #canvas { width: 5000px; height: 5000px; background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; position: relative; }
+        :root { --f-blue: #18a0fb; --f-red: #ff4d4f; }
+        /* 커서 기본 화살표 고정 */
+        * { cursor: default !important; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #f3f4f6; overflow: hidden; font-family: sans-serif; }
         
-        /* 공통 모달 배경 (투명도 있는 어두운색) */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); min-width: 300px; }
+        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+        #canvas { position: absolute; top: 0; left: 0; }
+        #grid { position: absolute; width: 400000px; height: 400000px; left: -200000px; top: -200000px; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 40px 40px; z-index: -1; }
 
-        /* 툴바 */
-        #toolbar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; gap: 12px; background: rgba(255, 255, 255, 0.9); padding: 8px 16px; border-radius: 50px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); backdrop-filter: blur(10px); align-items: center; border: 1px solid rgba(0,0,0,0.05); }
-        .tool-btn { padding: 10px 22px; background: white; border: 1px solid #eee; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
-        #add-note { background: var(--f-blue); color: white; border: none; }
-        #name-display-area { font-size: 14px; color: #333; padding: 0 15px; border-right: 1px solid #eee; cursor: pointer; font-weight: 800; }
+        /* 상단 바 */
+        #toolbar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; gap: 15px; background: white; padding: 10px 25px; border-radius: 50px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); align-items: center; }
+        #name-display { font-weight: bold; border-right: 1px solid #eee; padding-right: 15px; }
 
         /* 포스트잇 */
-        .note { position: absolute; display: flex; flex-direction: column; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); background: white; border: 2px solid transparent; cursor: grab; min-width: 220px; min-height: 160px; }
-        .note.selected { border-color: var(--f-blue); z-index: 100 !important; }
-
-        /* 원형 컬러 피커 모달 전용 */
-        .picker-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-        .circular-input-wrapper { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; position: relative; border: 4px solid #eee; cursor: pointer; }
-        #real-color-picker { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; cursor: pointer; border: none; padding: 0; }
-        .hex-input-group { display: flex; align-items: center; gap: 8px; background: #f5f5f5; padding: 8px 15px; border-radius: 10px; width: 100%; box-sizing: border-box; }
-        .hex-input-group span { font-weight: bold; color: #888; }
-        .hex-input-group input { background: transparent; border: none; outline: none; font-family: monospace; font-size: 16px; width: 100%; color: #333; }
-
-        /* 컨트롤 및 텍스트 */
-        .note-controls { position: absolute; top: -55px; left: 50%; transform: translateX(-50%); display: none; gap: 12px; background: #2c2c2c; padding: 8px 18px; border-radius: 30px; align-items: center; }
-        .note.selected .note-controls { display: flex; }
-        .control-btn { background: transparent; border: none; color: white; font-size: 12px; cursor: pointer; opacity: 0.8; font-weight: bold; }
-        .author-tag { font-size: 11px; color: rgba(0,0,0,0.3); margin-top: 12px; font-weight: 800; }
+        .note { position: absolute; padding: 20px; border-radius: 15px; background: white; box-shadow: 0 5px 15px rgba(0,0,0,0.1); min-width: 280px; min-height: 200px; border: 2.5px solid transparent; display: flex; flex-direction: column; box-sizing: border-box; }
+        .note.selected { border-color: var(--f-blue); z-index: 1000; }
         
-        .note textarea { width: 100%; flex-grow: 1; border: none; resize: none; outline: none; background: transparent; font-family: inherit; font-size: 18px; color: #333; pointer-events: none; }
-        .note.editing textarea { pointer-events: auto; }
+        /* [수정] 컨트롤바: 가로 한 줄로 길게 정렬 */
+        .note-controls { 
+            position: absolute; top: -65px; left: 50%; transform: translateX(-50%); 
+            display: none; background: #1e1e1e; padding: 12px 25px; border-radius: 12px; 
+            gap: 20px; white-space: nowrap; flex-direction: row !important; align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: auto !important;
+        }
+        .note.selected .note-controls { display: flex !important; }
+        .c-item { color: #eee; font-size: 13px; font-weight: bold; background: none; border: none; padding: 5px 10px; display: inline-block; }
+        .c-item:hover { color: white; }
 
-        /* 이미지 조절 */
-        .img-container { position: relative; margin-bottom: 12px; border-radius: 8px; display: inline-block; align-self: flex-start; }
-        .img-active { border: 2px solid var(--f-blue); padding: 2px; }
-        .note img { display: block; border-radius: 6px; pointer-events: none; }
-        .img-resizer { position: absolute; width: 12px; height: 12px; background: var(--f-blue); right: -6px; bottom: -6px; border-radius: 50%; cursor: nwse-resize; display: none; border: 2px solid white; }
-        .img-active .img-resizer { display: block; }
+        .note textarea { width: 100%; flex-grow: 1; border: none; resize: none; outline: none; background: transparent; font-size: 18px; margin-top: 10px; line-height: 1.5; }
+        .resizer { position: absolute; width: 20px; height: 20px; right: 0; bottom: 0; z-index: 10; }
+
+        /* 모달 */
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+        .modal { background: white; padding: 35px; border-radius: 20px; text-align: center; min-width: 300px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
 
-<div id="name-modal" class="overlay">
-    <div class="modal-content">
-        <h3 id="modal-title">닉네임 설정</h3>
-        <input type="text" id="user-name-input" maxlength="8" style="padding:12px; border-radius:10px; border:2px solid #eee; width:80%; margin-bottom:20px; font-size:16px; outline:none;">
-        <button id="start-btn" class="tool-btn" style="background: var(--f-blue); color: white; width: 100%;">확인</button>
-    </div>
-</div>
-
-<div id="color-modal" class="overlay">
-    <div class="modal-content">
-        <h3 style="margin-bottom:20px;">색상 선택</h3>
-        <div class="picker-container">
-            <div class="circular-input-wrapper">
-                <input type="color" id="real-color-picker">
-            </div>
-            <div class="hex-input-group">
-                <span>HEX</span>
-                <input type="text" id="hex-text-display">
-            </div>
-            <button id="color-confirm-btn" class="tool-btn" style="background: #333; color: white; width: 100%;">적용하기</button>
-        </div>
-    </div>
-</div>
-
 <div id="toolbar">
-    <div id="name-display-area">Guest</div>
-    <button id="add-note" class="tool-btn">+ 새 메모</button>
+    <div id="name-display">이름 설정</div>
+    <button id="add-note" style="background:#111; color:white; border:none; padding:10px 20px; border-radius:25px; font-weight:bold;">+ 메모 추가</button>
 </div>
-<div id="canvas"></div>
 
-<input type="file" id="hidden-file-input" accept="image/*" style="display:none">
+<div id="viewport">
+    <div id="canvas"><div id="grid"></div></div>
+</div>
+
+<div id="name-modal" class="overlay">
+    <div class="modal">
+        <h3 style="margin-top:0;">사용할 닉네임을 입력하세요</h3>
+        <input type="text" id="name-input" style="padding:12px; width:80%; margin:20px 0; border-radius:10px; border:1.5px solid #ddd; font-size:16px; text-align:center; outline:none;">
+        <br>
+        <button id="name-save-btn" style="padding:12px 40px; background:var(--f-blue); color:white; border:none; border-radius:10px; font-weight:bold; width:100%;">저장하고 시작하기</button>
+    </div>
+</div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, set, update, remove, onDisconnect, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCX4hr8AauLtShugeHdogIa9WlKG1GeLDA",
@@ -99,197 +78,118 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const notesRef = ref(db, 'notes');
-    const myId = localStorage.getItem('padlet_id') || Math.random().toString(36).substring(7);
-    localStorage.setItem('padlet_id', myId);
+
+    const canvas = document.getElementById('canvas');
+    const viewport = document.getElementById('viewport');
+    let offX = 0, offY = 0, isPanning = false;
     
-    let myName = localStorage.getItem('padlet_name');
-    const myColor = `hsl(${Math.random() * 360}, 80%, 50%)`;
-    let isShiftPressed = false;
-    let selectedNoteId = null;
+    // [핵심] 브라우저별 개별 이름 (localStorage)
+    let myName = localStorage.getItem('user_p_name') || "";
 
-    // 1. 이름 변경 로직 (기존 포스트잇 이름 일괄 업데이트)
-    async function updateMyNotesName(newName) {
-        const snapshot = await get(notesRef);
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            for (let id in data) {
-                if (data[id].authorId === myId) {
-                    update(ref(db, `notes/${id}`), { author: newName });
-                }
-            }
-        }
-    }
-
-    // 이름 모달 제어
     const nameModal = document.getElementById('name-modal');
-    const nameInput = document.getElementById('user-name-input');
-    const nameDisplay = document.getElementById('name-display-area');
+    const nameDisplay = document.getElementById('name-display');
 
-    nameDisplay.addEventListener('click', () => { nameModal.style.display = 'flex'; nameInput.value = myName; nameInput.focus(); });
-    document.getElementById('start-btn').addEventListener('click', () => {
-        const val = nameInput.value.trim();
+    const showModal = () => { nameModal.style.display = 'flex'; };
+    if (!myName) showModal();
+    else nameDisplay.innerText = myName;
+
+    document.getElementById('name-save-btn').onclick = () => {
+        const val = document.getElementById('name-input').value.trim();
         if (val) {
-            const oldName = myName;
             myName = val;
-            localStorage.setItem('padlet_name', myName);
+            localStorage.setItem('user_p_name', myName);
             nameDisplay.innerText = myName;
             nameModal.style.display = 'none';
-            if (oldName) updateMyNotesName(myName); // 이름 일괄 업데이트 실행
-            initApp();
         }
-    });
+    };
+    nameDisplay.onclick = showModal;
 
-    if (!myName) nameModal.style.display = 'flex'; else { nameDisplay.innerText = myName; initApp(); }
-
-    function initApp() {
-        const myCursorRef = ref(db, `cursors/${myId}`);
-        onDisconnect(myCursorRef).remove();
-        document.addEventListener('mousemove', (e) => set(myCursorRef, { x: e.pageX, y: e.pageY, color: myColor, name: myName }));
-        onValue(ref(db, 'cursors'), (s) => {
-            const data = s.val() || {};
-            document.querySelectorAll('.user-cursor').forEach(c => { if (!data[c.id.replace('cursor-', '')]) c.remove(); });
-            for (let id in data) {
-                if (id === myId) continue;
-                let el = document.getElementById(`cursor-${id}`);
-                if (!el) {
-                    el = document.createElement('div'); el.id = `cursor-${id}`; el.className = 'user-cursor';
-                    el.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" style="fill:${data[id].color}; stroke:white; stroke-width:1.5px;"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg><div class="cursor-label" style="background:${data[id].color}">${data[id].name}</div>`;
-                    document.body.appendChild(el);
-                }
-                el.style.left = data[id].x + 'px'; el.style.top = data[id].y + 'px';
-            }
-        });
-    }
-
-    // 2. 원형 컬러 피커 제어
-    const colorModal = document.getElementById('color-modal');
-    const realPicker = document.getElementById('real-color-picker');
-    const hexInput = document.getElementById('hex-text-display');
-
-    realPicker.addEventListener('input', (e) => { hexInput.value = e.target.value.toUpperCase(); });
-    hexInput.addEventListener('input', (e) => { if(/^#[0-9A-F]{6}$/i.test(e.target.value)) realPicker.value = e.target.value; });
-
-    document.getElementById('color-confirm-btn').addEventListener('click', () => {
-        if (selectedNoteId) {
-            update(ref(db, `notes/${selectedNoteId}`), { color: realPicker.value });
-            colorModal.style.display = 'none';
-        }
-    });
-
-    // 3. 포스트잇 렌더링
-    document.getElementById('add-note').addEventListener('click', () => {
-        push(notesRef, { x: window.scrollX+100, y: window.scrollY+100, w: 260, h: 220, text: "", fontSize: 18, color: '#ffffff', author: myName, authorId: myId, img: "", imgW: 0, imgH: 0 });
-    });
+    // 캔버스 팬
+    viewport.onmousedown = (e) => { if(e.target === viewport || e.target.id === 'grid') isPanning = true; };
+    window.onmousemove = (e) => { if(isPanning) { offX += e.movementX; offY += e.movementY; canvas.style.transform = `translate(${offX}px, ${offY}px)`; } };
+    window.onmouseup = () => isPanning = false;
 
     function renderNote(id, data) {
         let note = document.querySelector(`.note[data-id="${id}"]`);
         if (!note) {
-            note = document.createElement('div'); note.className = 'note'; note.dataset.id = id;
+            note = document.createElement('div');
+            note.className = 'note';
+            note.dataset.id = id;
             note.innerHTML = `
                 <div class="note-controls">
-                    <button class="control-btn palette-open">🎨 색상</button>
-                    <button class="control-btn add-img-btn">🖼 사진</button>
-                    <button class="control-btn del-note-btn" style="color:var(--f-red)">삭제</button>
+                    <button class="c-item col-btn">🎨 색상</button>
+                    <button class="c-item del-btn" style="color:var(--f-red)">🗑️ 삭제</button>
                 </div>
-                <div class="img-area"></div>
                 <textarea></textarea>
-                <div class="author-tag">BY ${data.author}</div>
+                <div class="author-tag" style="font-size:10px; color:#999; margin-top:5px;">BY ${data.author || '익명'}</div>
                 <div class="resizer"></div>
             `;
-            document.getElementById('canvas').appendChild(note);
-            setupEvents(note, id);
-        }
-        if (note.dataset.isInteracting === "true") return;
-        note.style.left = data.x + 'px'; note.style.top = data.y + 'px';
-        note.style.width = data.w + 'px'; note.style.height = data.h + 'px';
-        note.style.backgroundColor = data.color;
-        note.querySelector('textarea').value = data.text;
-        note.querySelector('textarea').style.fontSize = data.fontSize + 'px';
-        note.querySelector('.author-tag').innerText = `BY ${data.author}`; // 이름 변경 실시간 반영
+            canvas.appendChild(note);
 
-        const imgArea = note.querySelector('.img-area');
-        if (data.img) {
-            imgArea.innerHTML = `<div class="img-container" style="width:${data.imgW}px; height:${data.imgH}px;"><img src="${data.img}" style="width:100%; height:100%;"><div class="img-resizer"></div></div>`;
-        } else imgArea.innerHTML = '';
-    }
+            const controls = note.querySelector('.note-controls');
+            controls.onmousedown = (e) => e.stopPropagation(); 
 
-    function setupEvents(note, id) {
-        const ta = note.querySelector('textarea'), rs = note.querySelector('.resizer');
-        let move = false, resize = false, imgResize = false, start = {}, ratio = 1;
-
-        note.addEventListener('mousedown', (e) => {
-            document.querySelectorAll('.note').forEach(n => n.classList.remove('selected'));
-            note.classList.add('selected'); selectedNoteId = id; note.dataset.isInteracting = "true";
-            
-            const imgCon = note.querySelector('.img-container');
-            const imgRs = note.querySelector('.img-resizer');
-
-            if (imgCon && (e.target === imgCon || imgCon.contains(e.target)) && e.target !== imgRs) imgCon.classList.add('img-active');
-            else if (e.target === imgRs) { imgResize = true; ratio = imgCon.offsetWidth / imgCon.offsetHeight; }
-            else if (e.target === rs) resize = true;
-            else if (!note.classList.contains('editing') && !e.target.closest('.note-controls')) move = true;
-
-            start = { x: e.clientX, y: e.clientY, l: note.offsetLeft, t: note.offsetTop, w: note.offsetWidth, h: note.offsetHeight, iw: imgCon?imgCon.offsetWidth:0, ih: imgCon?imgCon.offsetHeight:0 };
-            e.stopPropagation();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (move) {
-                const nx = start.l + (e.clientX - start.x), ny = start.t + (e.clientY - start.y);
-                update(ref(db, `notes/${id}`), { x: nx, y: ny });
-            } else if (resize) {
-                update(ref(db, `notes/${id}`), { w: Math.max(200, start.w + (e.clientX - start.x)), h: Math.max(150, start.h + (e.clientY - start.y)) });
-            } else if (imgResize) {
-                const limit = Math.min(note.offsetWidth, note.offsetHeight) * 0.9;
-                let nw = Math.min(limit, start.iw + (e.clientX - start.x));
-                update(ref(db, `notes/${id}`), { imgW: nw, imgH: (window.event.shiftKey || isShiftPressed) ? nw / ratio : Math.min(limit, start.ih + (e.clientY - start.y)) });
-            }
-        });
-
-        document.addEventListener('mouseup', () => { move = resize = imgResize = false; note.dataset.isInteracting = "false"; });
-
-        note.addEventListener('click', (e) => {
-            if (e.target.classList.contains('palette-open')) {
-                realPicker.value = note.style.backgroundColor;
-                hexInput.value = realPicker.value.toUpperCase();
-                colorModal.style.display = 'flex';
-            }
-            if (e.target.classList.contains('del-note-btn')) remove(ref(db, `notes/${id}`));
-            if (e.target.classList.contains('add-img-btn')) { window.currentImgId = id; document.getElementById('hidden-file-input').click(); }
-        });
-
-        note.addEventListener('dblclick', () => { note.classList.add('editing'); ta.focus(); });
-        ta.addEventListener('blur', () => { note.classList.remove('editing'); update(ref(db, `notes/${id}`), { text: ta.value }); });
-        ta.addEventListener('wheel', (e) => {
-            if (!note.classList.contains('editing')) return; e.preventDefault();
-            let fz = (parseInt(ta.style.fontSize) || 18) + (e.deltaY < 0 ? 2 : -2);
-            update(ref(db, `notes/${id}`), { fontSize: Math.min(Math.max(10, fz), 80) });
-        }, { passive: false });
-    }
-
-    document.getElementById('hidden-file-input').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && window.currentImgId) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const img = new Image();
-                img.onload = () => {
-                    const limit = 150; let w = img.width, h = img.height;
-                    if (w > limit) { h = (limit/w)*h; w = limit; }
-                    update(ref(db, `notes/${window.currentImgId}`), { img: ev.target.result, imgW: w, imgH: h });
-                };
-                img.src = ev.target.result;
+            // 삭제 기능 확실히 작동
+            note.querySelector('.del-btn').onclick = (e) => { e.stopPropagation(); remove(ref(db, `notes/${id}`)); };
+            note.querySelector('.col-btn').onclick = (e) => {
+                e.stopPropagation();
+                const c = prompt("색상 코드 입력 (#ffffff 등)", data.color || "#ffffff");
+                if(c) update(ref(db, `notes/${id}`), { color: c });
             };
-            reader.readAsDataURL(file);
+
+            // 드래그/리사이즈 통합 로직
+            note.onmousedown = (e) => {
+                if (e.target.tagName === 'TEXTAREA' || e.target.closest('.note-controls')) return;
+                e.stopPropagation();
+                
+                document.querySelectorAll('.note').forEach(n => n.classList.remove('selected'));
+                note.classList.add('selected');
+
+                const isResize = e.target.classList.contains('resizer');
+                let sX = e.clientX, sY = e.clientY;
+                let sL = note.offsetLeft, sT = note.offsetTop;
+                let sW = note.offsetWidth, sH = note.offsetHeight;
+
+                const move = (me) => {
+                    if(isResize) {
+                        const nw = Math.max(280, sW + (me.clientX - sX));
+                        const nh = Math.max(200, sH + (me.clientY - sY));
+                        note.style.width = nw + 'px'; note.style.height = nh + 'px';
+                        update(ref(db, `notes/${id}`), { w: nw, h: nh });
+                    } else {
+                        const nx = sL + (me.clientX - sX);
+                        const ny = sT + (me.clientY - sY);
+                        note.style.left = nx + 'px'; note.style.top = ny + 'px';
+                        update(ref(db, `notes/${id}`), { x: nx, y: ny });
+                    }
+                };
+                const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+            };
+
+            note.querySelector('textarea').oninput = (e) => update(ref(db, `notes/${id}`), { text: e.target.value });
         }
-    });
 
-    window.addEventListener('keydown', (e) => { if(e.key === 'Shift') isShiftPressed = true; });
-    window.addEventListener('keyup', (e) => { if(e.key === 'Shift') isShiftPressed = false; });
+        if (note.classList.contains('selected') && (document.activeElement === note.querySelector('textarea'))) {
+            // 입력 중일 때는 위치 업데이트만 반영하고 텍스트 덮어쓰기 방지 (선택사항)
+        }
 
-    onChildAdded(notesRef, (s) => renderNote(s.key, s.val()));
-    onChildChanged(notesRef, (s) => renderNote(s.key, s.val()));
-    onChildRemoved(notesRef, (s) => document.querySelector(`.note[data-id="${s.key}"]`)?.remove());
+        note.style.left = data.x + 'px';
+        note.style.top = data.y + 'px';
+        note.style.width = (data.w || 280) + 'px';
+        note.style.height = (data.h || 200) + 'px';
+        note.style.backgroundColor = data.color || '#ffffff';
+        note.querySelector('textarea').value = data.text || "";
+    }
+
+    document.getElementById('add-note').onclick = () => {
+        push(notesRef, { x: -offX + 100, y: -offY + 100, w: 280, h: 200, text: "", author: myName, color: "#ffffff" });
+    };
+
+    onChildAdded(notesRef, s => renderNote(s.key, s.val()));
+    onChildChanged(notesRef, s => renderNote(s.key, s.val()));
+    onChildRemoved(notesRef, s => document.querySelector(`.note[data-id="${s.key}"]`)?.remove());
 </script>
 </body>
 </html>
