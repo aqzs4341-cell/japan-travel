@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>멀티미디어 협업 패들렛</title>
+    <title>프로 협업 화이트보드</title>
     <style>
         :root { --f-blue: #18a0fb; --f-red: #ff4d4f; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #e5e5e5; font-family: sans-serif; overflow: auto; }
@@ -17,41 +17,38 @@
         #toolbar { position: fixed; top: 20px; left: 20px; z-index: 10000; display: flex; gap: 10px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
         button { padding: 8px 16px; background: var(--f-blue); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
-        /* 통합 포스트잇 */
+        /* 포스트잇 */
         .note { 
             position: absolute; display: flex; flex-direction: column; 
             padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
             background: #FFF9C4; border: 2px solid transparent; cursor: grab;
-            min-width: 180px; min-height: 120px;
+            min-width: 150px; min-height: 100px;
         }
         .note.selected { border-color: var(--f-blue); z-index: 100 !important; }
+
+        /* 이미지 개별 조절 영역 */
+        .img-container { position: relative; margin-bottom: 8px; display: inline-block; align-self: flex-start; border: 2px solid transparent; }
+        .img-container.img-active { border-color: var(--f-blue); cursor: default; }
+        .note img { display: block; width: 100%; height: 100%; border-radius: 4px; pointer-events: none; -webkit-user-drag: none; }
         
-        /* 이미지 영역 */
-        .note .img-wrapper { width: 100%; margin-bottom: 8px; position: relative; }
-        .note img { width: 100%; height: auto; border-radius: 4px; display: block; }
-        .note .no-img { width: 100%; height: 60px; background: rgba(0,0,0,0.05); border: 1px dashed rgba(0,0,0,0.2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #888; cursor: pointer; }
+        /* 이미지용 리사이저 */
+        .img-resizer { position: absolute; width: 10px; height: 10px; background: var(--f-blue); right: -5px; bottom: -5px; border-radius: 50%; cursor: nwse-resize; display: none; }
+        .img-active .img-resizer { display: block; }
 
         /* 텍스트 영역 */
-        .note textarea { 
-            width: 100%; flex-grow: 1; border: none; resize: none; outline: none; 
-            background: transparent; font-family: inherit; font-size: 16px; 
-            pointer-events: none; line-height: 1.4;
-        }
+        .note textarea { width: 100%; flex-grow: 1; border: none; resize: none; outline: none; background: transparent; font-family: inherit; font-size: 16px; pointer-events: none; }
         .note.editing textarea { pointer-events: auto; }
 
-        /* 컨트롤 및 작성자 */
-        .note-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; border-top: 1px solid rgba(0,0,0,0.05); pt: 5px; }
-        .author-tag { font-size: 10px; color: rgba(0,0,0,0.4); font-weight: bold; }
+        /* 컨트롤러 및 커서 */
         .note-controls { position: absolute; top: -40px; left: 0; display: none; gap: 5px; background: #333; padding: 5px; border-radius: 6px; }
         .note.selected .note-controls { display: flex; }
         .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 1px solid white; }
-
-        /* 커서 및 리사이저 */
+        .resizer { position: absolute; width: 12px; height: 12px; background: #ccc; right: -6px; bottom: -6px; border-radius: 50%; cursor: nwse-resize; display: none; }
+        .note.selected .resizer { display: block; }
+        
         .user-cursor { position: absolute; width: 20px; height: 20px; pointer-events: none; z-index: 9999; }
         .cursor-svg { width: 18px; height: 18px; fill: currentColor; stroke: white; stroke-width: 1.5px; }
         .cursor-label { position: absolute; left: 14px; top: 14px; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; white-space: nowrap; font-weight: bold; }
-        .resizer { position: absolute; width: 12px; height: 12px; background: var(--f-blue); right: -6px; bottom: -6px; border-radius: 50%; cursor: nwse-resize; display: none; }
-        .note.selected .resizer { display: block; }
     </style>
 </head>
 <body>
@@ -64,10 +61,11 @@
     </div>
 </div>
 
-<div id="toolbar"><button id="add-note">+ 새 메모 추가</button></div>
+<div id="toolbar">
+    <button id="add-note">+ 메모</button>
+    <button id="add-img-note" style="background:#4CAF50">+ 사진 메모</button>
+</div>
 <div id="canvas"></div>
-
-<input type="file" id="hidden-file-input" accept="image/*" style="display:none">
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -92,13 +90,22 @@
     
     let myName = localStorage.getItem('padlet_name');
     const myColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-    let currentUploadTarget = null;
+    let isShiftPressed = false;
 
-    if (!myName) { document.getElementById('name-modal').style.display = 'flex'; } 
+    // Shift 키 체크
+    window.addEventListener('keydown', (e) => { if(e.key === 'Shift') isShiftPressed = true; });
+    window.addEventListener('keyup', (e) => { if(e.key === 'Shift') isShiftPressed = false; });
+
+    // 이름 입력 엔터 처리
+    const nameInput = document.getElementById('user-name-input');
+    const startBtn = document.getElementById('start-btn');
+    nameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') startBtn.click(); });
+
+    if (!myName) { document.getElementById('name-modal').style.display = 'flex'; nameInput.focus(); } 
     else { document.getElementById('name-modal').style.display = 'none'; initApp(); }
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-        const val = document.getElementById('user-name-input').value.trim();
+    startBtn.addEventListener('click', () => {
+        const val = nameInput.value.trim();
         if (val) { myName = val; localStorage.setItem('padlet_name', myName); document.getElementById('name-modal').style.display = 'none'; initApp(); }
     });
 
@@ -106,7 +113,6 @@
         const myCursorRef = ref(db, `cursors/${myId}`);
         onDisconnect(myCursorRef).remove();
         document.addEventListener('mousemove', (e) => set(myCursorRef, { x: e.pageX, y: e.pageY, color: myColor, name: myName }));
-        
         onValue(ref(db, 'cursors'), (s) => {
             const data = s.val() || {};
             document.querySelectorAll('.user-cursor').forEach(c => { if (!data[c.id.replace('cursor-', '')]) c.remove(); });
@@ -125,7 +131,18 @@
     }
 
     document.getElementById('add-note').addEventListener('click', () => {
-        push(notesRef, { x: 200, y: 200, w: 220, h: 200, text: "내용을 입력하세요", fontSize: 16, color: '#FFF9C4', author: myName, img: "" });
+        push(notesRef, { x: 200, y: 200, w: 200, h: 150, text: "텍스트 입력", fontSize: 16, color: '#FFF9C4', author: myName, img: "" });
+    });
+
+    document.getElementById('add-img-note').addEventListener('click', () => {
+        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (ev) => push(notesRef, { x: 250, y: 250, w: 250, h: 300, text: "", fontSize: 16, color: '#FFF', author: myName, img: ev.target.result, imgW: 200, imgH: 150 });
+            reader.readAsDataURL(file);
+        };
+        input.click();
     });
 
     function renderNote(id, data) {
@@ -137,11 +154,10 @@
                     <div class="color-dot" style="background:#FFF9C4" data-color="#FFF9C4"></div>
                     <div class="color-dot" style="background:#BBDEFB" data-color="#BBDEFB"></div>
                     <div class="color-dot" style="background:#C8E6C9" data-color="#C8E6C9"></div>
-                    <button class="del-btn" style="background:red; border:none; color:white; font-size:10px; cursor:pointer;">삭제</button>
+                    <button class="del-btn" style="background:red; color:white; border:none; font-size:10px; cursor:pointer;">삭제</button>
                 </div>
-                <div class="img-wrapper">${data.img ? `<img src="${data.img}">` : '<div class="no-img">📷 사진 추가</div>'}</div>
+                ${data.img ? `<div class="img-container" style="width:${data.imgW}px; height:${data.imgH}px;"><img src="${data.img}"><div class="img-resizer"></div></div>` : ''}
                 <textarea></textarea>
-                <div class="note-footer"><span class="author-tag">By ${data.author}</span></div>
                 <div class="resizer"></div>
             `;
             document.getElementById('canvas').appendChild(note);
@@ -153,65 +169,67 @@
         note.style.backgroundColor = data.color;
         const ta = note.querySelector('textarea');
         ta.value = data.text; ta.style.fontSize = data.fontSize + 'px';
-        if (data.img) { note.querySelector('.img-wrapper').innerHTML = `<img src="${data.img}">`; }
+        if (data.img) {
+            const ic = note.querySelector('.img-container');
+            ic.style.width = data.imgW + 'px'; ic.style.height = data.imgH + 'px';
+        }
     }
 
     function setupEvents(note, id) {
-        const ta = note.querySelector('textarea');
-        const rs = note.querySelector('.resizer');
-        let move = false, resize = false, start = {};
+        const ta = note.querySelector('textarea'), rs = note.querySelector('.resizer');
+        const imgCon = note.querySelector('.img-container'), imgRs = note.querySelector('.img-resizer');
+        let move = false, resize = false, imgResize = false, start = {}, ratio = 1;
 
         note.addEventListener('mousedown', (e) => {
             document.querySelectorAll('.note').forEach(n => n.classList.remove('selected'));
+            document.querySelectorAll('.img-container').forEach(c => c.classList.remove('img-active'));
             note.classList.add('selected'); note.dataset.isInteracting = "true";
-            if (e.target === rs) resize = true;
-            else if (!note.classList.contains('editing')) move = true;
-            start = { x: e.clientX - note.offsetLeft, y: e.clientY - note.offsetTop };
-            e.stopPropagation();
-        });
 
-        note.addEventListener('click', (e) => {
-            if (e.target.classList.contains('no-img') || e.target.tagName === 'IMG') {
-                currentUploadTarget = id; document.getElementById('hidden-file-input').click();
+            if (e.target === imgCon || (imgCon && imgCon.contains(e.target) && e.target !== imgRs)) {
+                imgCon.classList.add('img-active');
+            } else if (e.target === imgRs) {
+                imgResize = true; ratio = imgCon.offsetWidth / imgCon.offsetHeight;
+            } else if (e.target === rs) {
+                resize = true;
+            } else if (!note.classList.contains('editing')) {
+                move = true;
             }
-            if (e.target.classList.contains('color-dot')) update(ref(db, `notes/${id}`), { color: e.target.dataset.color });
-            if (e.target.classList.contains('del-btn')) remove(ref(db, `notes/${id}`));
+            start = { x: e.clientX, y: e.clientY, l: note.offsetLeft, t: note.offsetTop, w: note.offsetWidth, h: note.offsetHeight, iw: imgCon?imgCon.offsetWidth:0, ih: imgCon?imgCon.offsetHeight:0 };
+            e.stopPropagation();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (move) {
-                const nx = e.clientX - start.x, ny = e.clientY - start.y;
+                const nx = start.l + (e.clientX - start.x), ny = start.t + (e.clientY - start.y);
                 note.style.left = nx + 'px'; note.style.top = ny + 'px';
                 update(ref(db, `notes/${id}`), { x: nx, y: ny });
             } else if (resize) {
-                const nw = Math.max(150, e.clientX - note.offsetLeft), nh = Math.max(100, e.clientY - note.offsetTop);
+                const nw = start.w + (e.clientX - start.x), nh = start.h + (e.clientY - start.y);
                 note.style.width = nw + 'px'; note.style.height = nh + 'px';
                 update(ref(db, `notes/${id}`), { w: nw, h: nh });
+            } else if (imgResize) {
+                let nw = start.iw + (e.clientX - start.x);
+                let nh = isShiftPressed ? nw / ratio : start.ih + (e.clientY - start.y);
+                imgCon.style.width = nw + 'px'; imgCon.style.height = nh + 'px';
+                update(ref(db, `notes/${id}`), { imgW: nw, imgH: nh });
             }
         });
 
-        document.addEventListener('mouseup', () => { move = false; resize = false; note.dataset.isInteracting = "false"; });
+        document.addEventListener('mouseup', () => { move = resize = imgResize = false; note.dataset.isInteracting = "false"; });
+        note.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-dot')) update(ref(db, `notes/${id}`), { color: e.target.dataset.color });
+            if (e.target.classList.contains('del-btn')) remove(ref(db, `notes/${id}`));
+        });
         note.addEventListener('dblclick', () => { note.classList.add('editing'); ta.focus(); });
         ta.addEventListener('blur', () => { note.classList.remove('editing'); update(ref(db, `notes/${id}`), { text: ta.value }); });
-        
         ta.addEventListener('wheel', (e) => {
             if (!note.classList.contains('editing')) return;
             e.preventDefault();
             let fz = (parseInt(ta.style.fontSize) || 16) + (e.deltaY < 0 ? 2 : -2);
-            fz = Math.min(Math.max(10, fz), 80);
-            ta.style.fontSize = fz + 'px';
-            update(ref(db, `notes/${id}`), { fontSize: fz });
+            ta.style.fontSize = Math.min(Math.max(10, fz), 80) + 'px';
+            update(ref(db, `notes/${id}`), { fontSize: parseInt(ta.style.fontSize) });
         }, { passive: false });
     }
-
-    document.getElementById('hidden-file-input').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file && currentUploadTarget) {
-            const reader = new FileReader();
-            reader.onload = (ev) => update(ref(db, `notes/${currentUploadTarget}`), { img: ev.target.result });
-            reader.readAsDataURL(file);
-        }
-    });
 
     onChildAdded(notesRef, (s) => renderNote(s.key, s.val()));
     onChildChanged(notesRef, (s) => renderNote(s.key, s.val()));
