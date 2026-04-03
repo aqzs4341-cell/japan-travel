@@ -60,3 +60,36 @@ button {
     outline: none;
     font-size: 14px;
 }
+
+/* 기본 상태: 마우스 커서를 이동 모양으로 */
+.note {
+    cursor: move;
+    transition: box-shadow 0.2s;
+}
+
+/* 편집 중일 때 스타일 */
+.note.editing {
+    cursor: default;
+    box-shadow: 0 0 0 2px #18a0fb; /* 피그마 선택 강조색 */
+}
+
+.note textarea {
+    cursor: inherit; /* 부모의 커서를 따름 */
+    background: transparent;
+}
+
+/* 편집 모드일 때만 텍스트 커서 활성화 */
+.note textarea:focus {
+    cursor: text;
+    background: #fff;
+}
+
+/* 드래그용 손잡이 아이콘 (선택 사항) */
+.handle {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    font-size: 12px;
+    color: #ccc;
+    user-select: none;
+}
