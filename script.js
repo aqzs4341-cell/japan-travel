@@ -1,3 +1,14 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCX4hr8AauLtShugeHdogIa9WlKG1GeLDA",
+  authDomain: "japan-travel-b6597.firebaseapp.com",
+  databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "japan-travel-b6597",
+  storageBucket: "japan-travel-b6597.firebasestorage.app",
+  messagingSenderId: "207320927993",
+  appId: "1:207320927993:web:df014223249603767a1c28",
+  measurementId: "G-QTGGD2L5RC"
+};
+
 const canvas = document.getElementById('canvas');
 const addBtn = document.getElementById('add-note');
 
