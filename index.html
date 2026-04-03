@@ -2,189 +2,231 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>미니 피그마 패들렛 Pro</title>
+    <title>리얼타임 프로 패들렛</title>
     <style>
-        :root { --f-blue: #18a0fb; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: auto; background-color: #e5e5e5; font-family: sans-serif; }
-        #canvas { width: 5000px; height: 5000px; background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; position: relative; }
+        :root { --f-blue: #18a0fb; --f-red: #ff4d4f; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #e5e5e5; font-family: 'Pretendard', sans-serif; overflow: auto; }
+        #canvas { width: 5000px; height: 5000px; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 30px 30px; position: relative; }
         
-        #toolbar { position: fixed; top: 20px; left: 20px; z-index: 10000; display: flex; gap: 10px; }
-        button, label { padding: 10px 15px; background: white; color: #333; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        button:hover { background: #f0f0f0; }
+        /* 상단 툴바 */
+        #toolbar { position: fixed; top: 20px; left: 20px; z-index: 10000; display: flex; gap: 10px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); align-items: center; }
+        button, label { padding: 8px 16px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; }
+        button:hover { background: #eee; }
         #add-note { background: var(--f-blue); color: white; border: none; }
+        .del-btn { background: var(--f-red) !important; color: white !important; border: none !important; }
 
         /* 포스트잇 박스 */
         .note {
             position: absolute; display: flex; flex-direction: column;
-            padding: 10px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border: 1px solid rgba(0,0,0,0.1); cursor: grab; overflow: visible;
+            padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 2px solid transparent; cursor: grab; min-width: 100px; min-height: 80px;
+            transition: transform 0.1s;
         }
-        .note.selected { border: 2px solid var(--f-blue); }
-        .note.editing { cursor: default; }
+        .note.selected { border-color: var(--f-blue); box-shadow: 0 0 0 4px rgba(24, 160, 251, 0.2); z-index: 100 !important; }
+        .note.editing { cursor: text; }
 
-        /* 텍스트 영역 */
-        .note textarea {
-            width: 100%; height: 100%; border: none; resize: none; outline: none;
-            background: transparent; font-family: inherit; font-weight: 500;
-            pointer-events: none;
-        }
+        /* 내부 요소 */
+        .note textarea { width: 100%; height: 100%; border: none; resize: none; outline: none; background: transparent; font-family: inherit; pointer-events: none; line-height: 1.4; }
         .note.editing textarea { pointer-events: auto; }
+        .note img { width: 100%; height: auto; border-radius: 4px; pointer-events: none; -webkit-user-drag: none; }
 
-        /* 이미지 영역 */
-        .note img { width: 100%; height: auto; border-radius: 2px; pointer-events: none; }
+        /* 컨트롤러 (색상/삭제 등) */
+        .note-controls { position: absolute; top: -45px; left: 0; display: none; gap: 5px; background: #333; padding: 5px; border-radius: 6px; }
+        .note.selected .note-controls { display: flex; }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 1px solid white; }
 
-        /* 사이즈 조절 핸들 (우측 하단) */
-        .resizer {
-            position: absolute; width: 12px; height: 12px; background: var(--f-blue);
-            right: -6px; bottom: -6px; border-radius: 50%; cursor: nwse-resize;
-            display: none; z-index: 10;
-        }
+        /* 커서 스타일 */
+        .user-cursor { position: absolute; width: 20px; height: 20px; pointer-events: none; z-index: 9999; }
+        .cursor-svg { width: 18px; height: 18px; fill: currentColor; stroke: white; stroke-width: 1.5px; }
+        .cursor-label { position: absolute; left: 14px; top: 14px; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; font-weight: bold; }
+
+        /* 리사이즈 핸들 */
+        .resizer { position: absolute; width: 14px; height: 14px; background: var(--f-blue); right: -7px; bottom: -7px; border-radius: 50%; cursor: nwse-resize; display: none; border: 2px solid white; }
         .note.selected .resizer { display: block; }
-
-        /* 커서 */
-        .user-cursor { position: absolute; width: 20px; height: 20px; pointer-events: none; z-index: 9999; transition: all 0.05s linear; }
-        .cursor-svg { width: 18px; height: 18px; fill: currentColor; stroke: white; stroke-width: 1px; }
-        .cursor-label { position: absolute; left: 15px; top: 15px; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; white-space: nowrap; }
     </style>
 </head>
 <body>
 
-    <div id="toolbar">
-        <button id="add-note">+ 메모 추가</button>
-        <label for="img-upload">🖼 사진 업로드</label>
-        <input type="file" id="img-upload" accept="image/*" style="display:none">
-        <span style="font-size: 12px; color: #666; align-self: center;">(Del키: 삭제 / 휠: 글자크기 / 더블클릭: 편집)</span>
-    </div>
+<div id="toolbar">
+    <button id="add-note">📄 새 메모</button>
+    <label for="img-upload">🖼 사진 추가</label>
+    <input type="file" id="img-upload" accept="image/*" style="display:none">
+    <div style="width: 1px; height: 24px; background: #ddd; margin: 0 10px;"></div>
+    <span id="user-count" style="font-size: 12px; color: #666;">접속 중: 1명</span>
+</div>
+
+<div id="canvas"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, set, update, remove, onDisconnect, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // [필수] 본인 설정값 넣기
+    const firebaseConfig = {
+        apiKey: "본인꺼",
+        databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "japan-travel-b6597",
+        appId: "본인꺼"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const notesRef = ref(db, 'notes');
+    const cursorsRef = ref(db, 'cursors');
     
-    <div id="canvas"></div>
+    // 유저 고유 ID (로컬스토리지 저장해서 새로고침해도 유지 -> 커서 중첩 방지)
+    let myId = localStorage.getItem('padlet_user_id');
+    if (!myId) { myId = Math.random().toString(36).substring(7); localStorage.setItem('padlet_user_id', myId); }
+    
+    const myColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
+    const myCursorRef = ref(db, `cursors/${myId}`);
+    
+    // 접속 끊기면 커서 자동 삭제
+    onDisconnect(myCursorRef).remove();
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, set, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    // 1. 메모 생성
+    document.getElementById('add-note').addEventListener('click', () => {
+        push(notesRef, { x: 200, y: 200, w: 200, h: 150, text: "메모를 입력하세요", fontSize: 16, type: 'text', color: '#FFF9C4' });
+    });
 
-        // [Config] 네 설정값으로 유지해!
-        const firebaseConfig = {
-          apiKey: "AIzaSyCX4hr8AauLtShugeHdogIa9WlKG1GeLDA",
-          authDomain: "japan-travel-b6597.firebaseapp.com",
-          databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
-          projectId: "japan-travel-b6597",
-          storageBucket: "japan-travel-b6597.firebasestorage.app",
-          messagingSenderId: "207320927993",
-          appId: "1:207320927993:web:df014223249603767a1c28",
-          measurementId: "G-QTGGD2L5RC"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const notesRef = ref(db, 'notes');
-        const myId = Math.random().toString(36).substring(7);
-        const myColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
-        let selectedId = null;
-
-        // 1. 메모/사진 추가
-        const colors = ['#FFF9C4', '#FFCCBC', '#C8E6C9', '#BBDEFB', '#F8BBD0'];
-        document.getElementById('add-note').addEventListener('click', () => {
-            push(notesRef, { x: 200, y: 200, w: 200, h: 150, text: "메모", fontSize: 16, type: 'text', color: colors[Math.floor(Math.random()*5)] });
-        });
-
-        document.getElementById('img-upload').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    // 2. 이미지 업로드 (최적화)
+    document.getElementById('img-upload').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
             const reader = new FileReader();
-            reader.onload = (ev) => {
-                push(notesRef, { x: 300, y: 300, w: 250, h: 'auto', src: ev.target.result, type: 'image' });
-            };
+            reader.onload = (ev) => push(notesRef, { x: 300, y: 300, w: 300, h: 250, src: ev.target.result, type: 'image' });
             reader.readAsDataURL(file);
-        });
+        }
+    });
 
-        // 2. 삭제 기능 (Del 키)
-        document.addEventListener('keydown', (e) => {
-            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !document.querySelector('.editing')) {
-                remove(ref(db, `notes/${selectedId}`));
-                selectedId = null;
-            }
-        });
-
-        // 3. 실시간 동기화 함수
-        function renderNote(id, data) {
-            let note = document.querySelector(`.note[data-id="${id}"]`);
-            if (!note) {
-                note = document.createElement('div');
-                note.className = 'note'; note.dataset.id = id;
-                note.innerHTML = data.type === 'text' ? `<textarea></textarea><div class="resizer"></div>` : `<img src="${data.src}"><div class="resizer"></div>`;
-                document.getElementById('canvas').appendChild(note);
-                attachNoteEvents(note, id);
-            }
-            if (note.classList.contains('editing') || note.dataset.resizing === "true") return;
-
-            note.style.left = data.x + 'px'; note.style.top = data.y + 'px';
-            note.style.width = data.w + (typeof data.w === 'number' ? 'px' : '');
-            note.style.height = data.h + (typeof data.h === 'number' ? 'px' : '');
-            if (data.type === 'text') {
-                note.style.backgroundColor = data.color;
-                const ta = note.querySelector('textarea');
-                ta.value = data.text;
-                ta.style.fontSize = data.fontSize + 'px';
-            }
+    // 3. 렌더링 엔진
+    function renderNote(id, data) {
+        let note = document.querySelector(`.note[data-id="${id}"]`);
+        if (!note) {
+            note = document.createElement('div');
+            note.className = 'note'; note.dataset.id = id;
+            note.innerHTML = `
+                ${data.type === 'text' ? '<textarea></textarea>' : `<img src="${data.src}">`}
+                <div class="note-controls">
+                    <div class="color-dot" style="background:#FFF9C4" data-color="#FFF9C4"></div>
+                    <div class="color-dot" style="background:#BBDEFB" data-color="#BBDEFB"></div>
+                    <div class="color-dot" style="background:#C8E6C9" data-color="#C8E6C9"></div>
+                    <button class="del-btn" style="padding:2px 8px; margin-left:10px;">삭제</button>
+                </div>
+                <div class="resizer"></div>
+            `;
+            document.getElementById('canvas').appendChild(note);
+            setupNoteEvents(note, id);
         }
 
-        function attachNoteEvents(note, id) {
+        if (note.dataset.isInteracting === "true") return;
+
+        note.style.left = data.x + 'px'; note.style.top = data.top || data.y + 'px'; // y가 가끔 겹칠때 대비
+        note.style.width = data.w + 'px'; note.style.height = data.h + 'px';
+        if (data.type === 'text') {
+            note.style.backgroundColor = data.color;
             const ta = note.querySelector('textarea');
-            const resizer = note.querySelector('.resizer');
-            let isDragging = false; let isResizing = false;
-            let startPos = {x:0, y:0};
+            ta.value = data.text; ta.style.fontSize = data.fontSize + 'px';
+        }
+    }
 
-            note.addEventListener('mousedown', () => { selectedId = id; document.querySelectorAll('.note').forEach(n => n.classList.remove('selected')); note.classList.add('selected'); });
-            note.addEventListener('dblclick', () => { if (ta) { note.classList.add('editing'); ta.focus(); } });
-            if (ta) ta.addEventListener('blur', () => { note.classList.remove('editing'); update(ref(db, `notes/${id}`), { text: ta.value }); });
+    function setupNoteEvents(note, id) {
+        const ta = note.querySelector('textarea');
+        const rs = note.querySelector('.resizer');
+        let move = false, resize = false, start = {};
 
-            // 글자 크기 조절 (휠)
-            note.addEventListener('wheel', (e) => {
+        // 클릭 선택
+        note.addEventListener('mousedown', (e) => {
+            document.querySelectorAll('.note').forEach(n => n.classList.remove('selected'));
+            note.classList.add('selected');
+            note.dataset.isInteracting = "true";
+
+            if (e.target === rs) resize = true;
+            else if (!note.classList.contains('editing')) move = true;
+
+            start = { x: e.clientX - note.offsetLeft, y: e.clientY - note.offsetTop, w: note.offsetWidth, h: note.offsetHeight };
+            e.stopPropagation();
+        });
+
+        // 색상 변경 & 삭제 버튼
+        note.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-dot')) {
+                const newColor = e.target.dataset.color;
+                update(ref(db, `notes/${id}`), { color: newColor });
+            }
+            if (e.target.classList.contains('del-btn')) {
+                remove(ref(db, `notes/${id}`));
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (move) {
+                const nx = e.clientX - start.x, ny = e.clientY - start.y;
+                note.style.left = nx + 'px'; note.style.top = ny + 'px';
+                update(ref(db, `notes/${id}`), { x: nx, y: ny });
+            } else if (resize) {
+                const nw = Math.max(100, e.clientX - note.offsetLeft);
+                const nh = Math.max(80, e.clientY - note.offsetTop);
+                note.style.width = nw + 'px'; note.style.height = nh + 'px';
+                update(ref(db, `notes/${id}`), { w: nw, h: nh });
+            }
+        });
+
+        document.addEventListener('mouseup', () => { 
+            move = false; resize = false; note.dataset.isInteracting = "false"; 
+        });
+
+        // 편집 & 휠 폰트 조절
+        note.addEventListener('dblclick', () => { if (ta) { note.classList.add('editing'); ta.focus(); } });
+        if (ta) {
+            ta.addEventListener('blur', () => { note.classList.remove('editing'); update(ref(db, `notes/${id}`), { text: ta.value }); });
+            ta.addEventListener('wheel', (e) => {
                 if (!note.classList.contains('editing')) return;
                 e.preventDefault();
-                let newSize = (parseInt(ta.style.fontSize) || 16) + (e.deltaY < 0 ? 2 : -2);
-                ta.style.fontSize = Math.max(10, newSize) + 'px';
-                update(ref(db, `notes/${id}`), { fontSize: newSize });
-            });
-
-            // 드래그 & 리사이즈 통합 처리
-            note.addEventListener('mousedown', (e) => {
-                if (e.target === resizer) { isResizing = true; note.dataset.resizing = "true"; }
-                else if (!note.classList.contains('editing')) { isDragging = true; }
-                startPos = { x: e.clientX - note.offsetLeft, y: e.clientY - note.offsetTop, w: note.offsetWidth, h: note.offsetHeight };
-                e.stopPropagation();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    const x = e.clientX - startPos.x; const y = e.clientY - startPos.y;
-                    note.style.left = x + 'px'; note.style.top = y + 'px';
-                    update(ref(db, `notes/${id}`), { x, y });
-                } else if (isResizing) {
-                    const w = e.clientX - note.offsetLeft; const h = e.clientY - note.offsetTop;
-                    note.style.width = w + 'px'; note.style.height = h + 'px';
-                    update(ref(db, `notes/${id}`), { w, h });
-                }
-            });
-
-            document.addEventListener('mouseup', () => { isDragging = false; isResizing = false; note.dataset.resizing = "false"; });
+                let fz = (parseInt(ta.style.fontSize) || 16) + (e.deltaY < 0 ? 2 : -2);
+                fz = Math.min(Math.max(10, fz), 100);
+                ta.style.fontSize = fz + 'px';
+                update(ref(db, `notes/${id}`), { fontSize: fz });
+            }, { passive: false });
         }
+    }
 
-        // 4. 커서 및 Firebase 리스너 (생략/유지)
-        document.addEventListener('mousemove', (e) => set(ref(db, `cursors/${myId}`), { x: e.pageX, y: e.pageY, color: myColor }));
-        onValue(ref(db, 'cursors'), (s) => {
-            const curs = s.val();
-            for (let id in curs) {
-                if (id === myId) continue;
-                let el = document.getElementById(`cursor-${id}`);
-                if (!el) { el = document.createElement('div'); el.id = `cursor-${id}`; el.className = 'user-cursor'; el.innerHTML = `<svg class="cursor-svg" viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg><div class="cursor-label">${id.substring(0,3)}</div>`; document.body.appendChild(el); }
-                el.style.color = curs[id].color; el.querySelector('.cursor-label').style.backgroundColor = curs[id].color; el.style.left = curs[id].x + 'px'; el.style.top = curs[id].y + 'px';
-            }
+    // 4. 커서 & 삭제 동기화
+    document.addEventListener('mousemove', (e) => set(myCursorRef, { x: e.pageX, y: e.pageY, color: myColor, name: myId.substring(0,3) }));
+    
+    onValue(cursorsRef, (s) => {
+        const data = s.val() || {};
+        document.getElementById('user-count').innerText = `접속 중: ${Object.keys(data).length}명`;
+        // 안 쓰는 커서 제거
+        document.querySelectorAll('.user-cursor').forEach(c => {
+            const cid = c.id.replace('cursor-', '');
+            if (!data[cid]) c.remove();
         });
+        // 커서 이동
+        for (let id in data) {
+            if (id === myId) continue;
+            let el = document.getElementById(`cursor-${id}`);
+            if (!el) {
+                el = document.createElement('div'); el.id = `cursor-${id}`; el.className = 'user-cursor';
+                el.innerHTML = `<svg class="cursor-svg" viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg><div class="cursor-label">${data[id].name}</div>`;
+                document.body.appendChild(el);
+            }
+            el.style.color = data[id].color; el.querySelector('.cursor-label').style.backgroundColor = data[id].color;
+            el.style.left = data[id].x + 'px'; el.style.top = data[id].y + 'px';
+        }
+    });
 
-        onChildAdded(notesRef, (s) => renderNote(s.key, s.val()));
-        onChildChanged(notesRef, (s) => renderNote(s.key, s.val()));
-        onChildRemoved(notesRef, (s) => document.querySelector(`.note[data-id="${s.key}"]`)?.remove());
-        window.onbeforeunload = () => set(ref(db, `cursors/${myId}`), null);
-    </script>
+    // 5. Delete 키 삭제 추가
+    document.addEventListener('keydown', (e) => {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !document.querySelector('.editing')) {
+            const sel = document.querySelector('.note.selected');
+            if (sel) remove(ref(db, `notes/${sel.dataset.id}`));
+        }
+    });
+
+    onChildAdded(notesRef, (s) => renderNote(s.key, s.val()));
+    onChildChanged(notesRef, (s) => renderNote(s.key, s.val()));
+    onChildRemoved(notesRef, (s) => document.querySelector(`.note[data-id="${s.key}"]`)?.remove());
+</script>
 </body>
 </html>
