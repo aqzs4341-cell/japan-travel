@@ -2,85 +2,90 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Ultimate Collaborative Board - Fixed</title>
+    <title>Next-Gen Collaborative Board</title>
     <style>
         :root { --f-blue: #18a0fb; --f-red: #ff4d4f; --bg-gray: #f3f4f6; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--bg-gray); font-family: 'Pretendard', sans-serif; overflow: auto; }
         #canvas { width: 5000px; height: 5000px; background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; position: relative; }
         
-        /* 모달 및 툴바 */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); min-width: 300px; }
-        #toolbar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; gap: 12px; background: rgba(255, 255, 255, 0.9); padding: 8px 16px; border-radius: 50px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); backdrop-filter: blur(10px); align-items: center; border: 1px solid rgba(0,0,0,0.05); }
-        .tool-btn { padding: 10px 22px; background: white; border: 1px solid #eee; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 14px; }
+        /* 이름 입력 모달 */
+        #name-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 20000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-content { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid #eee; }
+        .modal-content h3 { margin-top: 0; color: #333; }
+        .modal-content input { padding: 12px; width: 220px; border: 2px solid #eee; border-radius: 10px; margin-bottom: 20px; display: block; margin: 0 auto 20px; font-size: 16px; outline: none; transition: border-color 0.2s; }
+        .modal-content input:focus { border-color: var(--f-blue); }
+
+        /* 상단 툴바 */
+        #toolbar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; gap: 12px; background: rgba(255, 255, 255, 0.9); padding: 8px 16px; border-radius: 50px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); align-items: center; }
+        .tool-btn { padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tool-btn:hover { background: #f9f9f9; transform: translateY(-1px); }
         #add-note { background: var(--f-blue); color: white; border: none; }
-        #name-display-area { font-size: 14px; color: #333; padding: 0 15px; border-right: 1px solid #eee; cursor: pointer; font-weight: 800; }
+        #name-display-area { font-size: 14px; color: #555; padding: 0 10px; border-right: 1px solid #eee; cursor: pointer; font-weight: bold; }
+        #name-display-area:hover { color: var(--f-blue); }
 
-        /* 포스트잇 */
-        .note { position: absolute; display: flex; flex-direction: column; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); background: white; border: 2px solid transparent; cursor: grab; min-width: 220px; min-height: 160px; }
-        .note.selected { border-color: var(--f-blue); z-index: 100 !important; }
+        /* 포스트잇 스타일 */
+        .note { 
+            position: absolute; display: flex; flex-direction: column; 
+            padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+            background: white; border: 2px solid transparent; cursor: grab;
+            min-width: 200px; min-height: 150px; transition: box-shadow 0.2s;
+        }
+        .note.selected { border-color: var(--f-blue); box-shadow: 0 15px 35px rgba(24, 160, 251, 0.2); z-index: 100 !important; }
 
-        /* 컨트롤 바 */
-        .note-controls { position: absolute; top: -55px; left: 50%; transform: translateX(-50%); display: none; gap: 12px; background: #2c2c2c; padding: 8px 18px; border-radius: 30px; align-items: center; }
+        /* 원형 컬러 팔레트 */
+        .color-palette { display: flex; gap: 8px; align-items: center; }
+        .color-dot { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 0 0 1px #eee; transition: transform 0.2s; }
+        .color-dot:hover { transform: scale(1.2); }
+        .custom-color-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #eee; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); cursor: pointer; position: relative; overflow: hidden; }
+        #color-picker { position: absolute; top: -5px; left: -5px; width: 40px; height: 40px; opacity: 0; cursor: pointer; }
+
+        /* 노트 컨트롤 바 (깔끔한 다크 모드) */
+        .note-controls { position: absolute; top: -55px; left: 50%; transform: translateX(-50%); display: none; gap: 12px; background: #2c2c2c; padding: 8px 16px; border-radius: 30px; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         .note.selected .note-controls { display: flex; }
-        .control-btn { background: transparent; border: none; color: white; font-size: 12px; cursor: pointer; opacity: 0.8; font-weight: bold; }
-        
-        /* 이미지 영역 */
-        .img-container { position: relative; margin-bottom: 12px; border-radius: 8px; display: inline-block; align-self: flex-start; transition: transform 0.1s; border: 2px solid transparent; }
-        .img-container.img-active { border-color: var(--f-blue); padding: 2px; }
-        .note img { display: block; border-radius: 6px; pointer-events: none; -webkit-user-drag: none; }
-        
-        /* 이미지 리사이저 (우측 하단 핸들) */
-        .img-resizer { position: absolute; width: 14px; height: 14px; background: var(--f-blue); right: -7px; bottom: -7px; border-radius: 50%; cursor: nwse-resize; display: none; border: 2px solid white; z-index: 10; }
+        .control-btn { background: transparent; border: none; color: white; font-size: 12px; cursor: pointer; opacity: 0.8; transition: opacity 0.2s; white-space: nowrap; }
+        .control-btn:hover { opacity: 1; }
+
+        /* 이미지 컨테이너 */
+        .img-container { position: relative; margin-bottom: 12px; border-radius: 8px; overflow: visible; display: inline-block; align-self: flex-start; border: 2px solid transparent; }
+        .img-container.img-active { border-color: var(--f-blue); }
+        .note img { display: block; border-radius: 8px; pointer-events: none; }
+        .img-resizer { position: absolute; width: 12px; height: 12px; background: var(--f-blue); right: -6px; bottom: -6px; border-radius: 50%; cursor: nwse-resize; display: none; border: 2px solid white; }
         .img-active .img-resizer { display: block; }
 
-        /* 텍스트 및 푸터 */
-        .note textarea { width: 100%; flex-grow: 1; border: none; resize: none; outline: none; background: transparent; font-family: inherit; font-size: 18px; color: #333; pointer-events: none; margin-top: 5px; }
+        /* 텍스트 및 커서 */
+        .note textarea { width: 100%; flex-grow: 1; border: none; resize: none; outline: none; background: transparent; font-family: inherit; font-size: 18px; color: #333; pointer-events: none; line-height: 1.5; }
         .note.editing textarea { pointer-events: auto; }
-        .author-tag { font-size: 11px; color: rgba(0,0,0,0.3); margin-top: 12px; font-weight: 800; }
-        
+        .author-tag { font-size: 11px; color: rgba(0,0,0,0.25); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .user-cursor { position: absolute; pointer-events: none; z-index: 9999; transition: transform 0.1s; }
+        .cursor-label { position: absolute; left: 14px; top: 14px; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; white-space: nowrap; font-weight: 600; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .resizer { position: absolute; width: 14px; height: 14px; background: #ddd; right: 8px; bottom: 8px; border-radius: 4px; cursor: nwse-resize; display: none; }
         .note.selected .resizer { display: block; }
-
-        /* 컬러피커 */
-        .circular-input-wrapper { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; position: relative; border: 4px solid #eee; margin: 0 auto; }
-        #real-color-picker { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="name-modal" class="overlay">
+<div id="name-modal">
     <div class="modal-content">
-        <h3 id="modal-title">닉네임 설정</h3>
-        <input type="text" id="user-name-input" maxlength="8" style="padding:12px; border-radius:10px; border:2px solid #eee; width:80%; margin-bottom:20px; font-size:16px;">
-        <button id="start-btn" class="tool-btn" style="background: var(--f-blue); color: white; width: 100%;">확인</button>
-    </div>
-</div>
-
-<div id="color-modal" class="overlay">
-    <div class="modal-content">
-        <h3>색상 선택</h3>
-        <div class="circular-input-wrapper"><input type="color" id="real-color-picker"></div>
-        <div style="background:#f5f5f5; padding:10px; border-radius:10px; margin:20px 0; display:flex; gap:10px; justify-content:center;">
-            <span style="font-weight:bold; color:#888;">HEX</span>
-            <input type="text" id="hex-text-display" style="border:none; background:transparent; font-family:monospace; font-size:16px; width:80px;">
-        </div>
-        <button id="color-confirm-btn" class="tool-btn" style="background: #333; color: white; width: 100%;">적용하기</button>
+        <h3 id="modal-title">반가워요! 이름을 알려주세요</h3>
+        <input type="text" id="user-name-input" placeholder="최대 8자" maxlength="8">
+        <button id="start-btn" class="tool-btn" style="background: var(--f-blue); color: white; width: 100%;">시작하기</button>
     </div>
 </div>
 
 <div id="toolbar">
-    <div id="name-display-area">Guest</div>
+    <div id="name-display-area" title="이름 바꾸기">Guest</div>
     <button id="add-note" class="tool-btn">+ 새 메모</button>
 </div>
 <div id="canvas"></div>
+
 <input type="file" id="hidden-file-input" accept="image/*" style="display:none">
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, set, update, remove, onDisconnect, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onChildChanged, onChildRemoved, set, update, remove, onDisconnect, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    const firebaseConfig = {
+   const firebaseConfig = {
       apiKey: "AIzaSyCX4hr8AauLtShugeHdogIa9WlKG1GeLDA",
       authDomain: "japan-travel-b6597.firebaseapp.com",
       databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -92,7 +97,6 @@
     };
 
 
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const notesRef = ref(db, 'notes');
@@ -100,52 +104,52 @@
     localStorage.setItem('padlet_id', myId);
     
     let myName = localStorage.getItem('padlet_name');
-    const myColor = `hsl(${Math.random() * 360}, 80%, 50%)`;
-    let selectedNoteId = null;
+    const myColor = `hsl(${Math.random() * 360}, 75%, 55%)`;
     let isShiftPressed = false;
+    let currentImgTargetId = null;
 
-    window.addEventListener('keydown', (e) => { 
-        if(e.key === 'Shift') isShiftPressed = true;
-        // Del 키 삭제 기능 (노트가 선택되어 있을 때)
-        if((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteId) {
-            const activeEl = document.activeElement;
-            if(activeEl.tagName !== 'TEXTAREA' && activeEl.tagName !== 'INPUT') {
-                remove(ref(db, `notes/${selectedNoteId}`));
-                selectedNoteId = null;
-            }
-        }
-    });
+    window.addEventListener('keydown', (e) => { if(e.key === 'Shift') isShiftPressed = true; });
     window.addEventListener('keyup', (e) => { if(e.key === 'Shift') isShiftPressed = false; });
 
-    // 이름 변경 처리
-    const nameModal = document.getElementById('name-modal');
     const nameInput = document.getElementById('user-name-input');
+    const startBtn = document.getElementById('start-btn');
     const nameDisplay = document.getElementById('name-display-area');
 
-    nameDisplay.addEventListener('click', () => { nameModal.style.display = 'flex'; nameInput.value = myName; nameInput.focus(); });
-    document.getElementById('start-btn').addEventListener('click', async () => {
+    // 이름 바꾸기 기능
+    nameDisplay.addEventListener('click', () => {
+        document.getElementById('modal-title').innerText = "변경할 이름을 입력하세요";
+        nameInput.value = myName;
+        document.getElementById('name-modal').style.display = 'flex';
+        nameInput.focus();
+    });
+
+    nameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') startBtn.click(); });
+
+    if (!myName) { 
+        document.getElementById('name-modal').style.display = 'flex'; 
+        nameInput.focus(); 
+    } else { 
+        document.getElementById('name-modal').style.display = 'none'; 
+        initApp(); 
+    }
+
+    startBtn.addEventListener('click', () => {
         const val = nameInput.value.trim();
-        if (val) {
-            myName = val;
-            localStorage.setItem('padlet_name', myName);
+        if (val) { 
+            myName = val; 
+            localStorage.setItem('padlet_name', myName); 
+            document.getElementById('name-modal').style.display = 'none'; 
             nameDisplay.innerText = myName;
-            nameModal.style.display = 'none';
-            // 내가 쓴 글 이름 일괄 업데이트
-            const snapshot = await get(notesRef);
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                for (let id in data) if (data[id].authorId === myId) update(ref(db, `notes/${id}`), { author: myName });
-            }
-            initApp();
+            initApp(); 
         }
     });
 
-    if (!myName) nameModal.style.display = 'flex'; else { nameDisplay.innerText = myName; initApp(); }
-
     function initApp() {
+        nameDisplay.innerText = myName;
         const myCursorRef = ref(db, `cursors/${myId}`);
         onDisconnect(myCursorRef).remove();
         document.addEventListener('mousemove', (e) => set(myCursorRef, { x: e.pageX, y: e.pageY, color: myColor, name: myName }));
+        
         onValue(ref(db, 'cursors'), (s) => {
             const data = s.val() || {};
             document.querySelectorAll('.user-cursor').forEach(c => { if (!data[c.id.replace('cursor-', '')]) c.remove(); });
@@ -154,7 +158,7 @@
                 let el = document.getElementById(`cursor-${id}`);
                 if (!el) {
                     el = document.createElement('div'); el.id = `cursor-${id}`; el.className = 'user-cursor';
-                    el.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" style="fill:${data[id].color}; stroke:white; stroke-width:1.5px; position:absolute;"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg><div class="cursor-label" style="background:${data[id].color}; position:absolute; left:14px; top:14px; color:white; padding:3px 10px; border-radius:20px; font-size:11px; white-space:nowrap; font-weight:600;">${data[id].name}</div>`;
+                    el.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" style="fill:${data[id].color}; stroke:white; stroke-width:1.5px;"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg><div class="cursor-label" style="background:${data[id].color}">${data[id].name}</div>`;
                     document.body.appendChild(el);
                 }
                 el.style.left = data[id].x + 'px'; el.style.top = data[id].y + 'px';
@@ -162,18 +166,8 @@
         });
     }
 
-    // 컬러 피커 모달
-    const colorModal = document.getElementById('color-modal');
-    const realPicker = document.getElementById('real-color-picker');
-    const hexDisplay = document.getElementById('hex-text-display');
-    realPicker.addEventListener('input', (e) => { hexDisplay.value = e.target.value.toUpperCase(); });
-    document.getElementById('color-confirm-btn').addEventListener('click', () => {
-        if(selectedNoteId) update(ref(db, `notes/${selectedNoteId}`), { color: realPicker.value });
-        colorModal.style.display = 'none';
-    });
-
     document.getElementById('add-note').addEventListener('click', () => {
-        push(notesRef, { x: window.scrollX+100, y: window.scrollY+100, w: 260, h: 220, text: "", fontSize: 18, color: '#ffffff', author: myName, authorId: myId, img: "", imgW: 0, imgH: 0 });
+        push(notesRef, { x: window.scrollX + 100, y: window.scrollY + 100, w: 260, h: 220, text: "", fontSize: 18, color: '#ffffff', author: myName, img: "", imgW: 0, imgH: 0 });
     });
 
     function renderNote(id, data) {
@@ -182,31 +176,41 @@
             note = document.createElement('div'); note.className = 'note'; note.dataset.id = id;
             note.innerHTML = `
                 <div class="note-controls">
-                    <button class="control-btn palette-open">🎨 색상</button>
+                    <div class="color-palette">
+                        <div class="color-dot" style="background:#ffffff" data-color="#ffffff"></div>
+                        <div class="color-dot" style="background:#fff9c4" data-color="#fff9c4"></div>
+                        <div class="color-dot" style="background:#ffccbc" data-color="#ffccbc"></div>
+                        <div class="color-dot" style="background:#c8e6c9" data-color="#c8e6c9"></div>
+                        <div class="custom-color-btn"><input type="color" id="color-picker"></div>
+                    </div>
+                    <div style="width:1px; height:15px; background:rgba(255,255,255,0.2);"></div>
                     <button class="control-btn add-img-btn">🖼 사진</button>
-                    <button class="control-btn del-img-btn" style="display:none; color:#FFAB91;">🖼 사진삭제</button>
-                    <button class="control-btn del-note-btn" style="color:var(--f-red)">노트삭제</button>
+                    <button class="control-btn del-note-btn" style="color:var(--f-red)">삭제</button>
                 </div>
                 <div class="img-area"></div>
-                <textarea placeholder="입력..."></textarea>
-                <div class="author-tag">BY ${data.author}</div>
+                <textarea placeholder="생각을 적어보세요..."></textarea>
+                <div class="author-tag">${data.author}</div>
                 <div class="resizer"></div>
             `;
             document.getElementById('canvas').appendChild(note);
             setupEvents(note, id);
         }
+        
         if (note.dataset.isInteracting === "true") return;
         note.style.left = data.x + 'px'; note.style.top = data.y + 'px';
         note.style.width = data.w + 'px'; note.style.height = data.h + 'px';
         note.style.backgroundColor = data.color;
         note.querySelector('textarea').value = data.text;
         note.querySelector('textarea').style.fontSize = data.fontSize + 'px';
-        note.querySelector('.author-tag').innerText = `BY ${data.author}`;
 
         const imgArea = note.querySelector('.img-area');
         if (data.img) {
-            imgArea.innerHTML = `<div class="img-container" style="width:${data.imgW}px; height:${data.imgH}px;"><img src="${data.img}" style="width:100%; height:100%;"><div class="img-resizer"></div></div>`;
-        } else imgArea.innerHTML = '';
+            imgArea.innerHTML = `
+                <div class="img-container" style="width:${data.imgW}px; height:${data.imgH}px;">
+                    <img src="${data.img}" style="width:100%; height:100%;">
+                    <div class="img-resizer"></div>
+                </div>`;
+        } else { imgArea.innerHTML = ''; }
     }
 
     function setupEvents(note, id) {
@@ -216,36 +220,35 @@
         note.addEventListener('mousedown', (e) => {
             document.querySelectorAll('.note').forEach(n => n.classList.remove('selected'));
             document.querySelectorAll('.img-container').forEach(c => c.classList.remove('img-active'));
-            note.classList.add('selected'); selectedNoteId = id; note.dataset.isInteracting = "true";
-            
+            note.classList.add('selected'); note.dataset.isInteracting = "true";
+
             const imgCon = note.querySelector('.img-container');
             const imgRs = note.querySelector('.img-resizer');
-            const delImgBtn = note.querySelector('.del-img-btn');
 
             if (imgCon && (e.target === imgCon || imgCon.contains(e.target)) && e.target !== imgRs) {
                 imgCon.classList.add('img-active');
-                if(delImgBtn) delImgBtn.style.display = 'block';
-                e.stopPropagation();
             } else if (e.target === imgRs) {
-                imgResize = true;
-                ratio = imgCon.offsetWidth / imgCon.offsetHeight;
-                e.stopPropagation();
+                imgResize = true; ratio = imgCon.offsetWidth / imgCon.offsetHeight;
             } else if (e.target === rs) {
                 resize = true;
-                e.stopPropagation();
             } else if (!note.classList.contains('editing') && !e.target.closest('.note-controls')) {
                 move = true;
             }
             start = { x: e.clientX, y: e.clientY, l: note.offsetLeft, t: note.offsetTop, w: note.offsetWidth, h: note.offsetHeight, iw: imgCon?imgCon.offsetWidth:0, ih: imgCon?imgCon.offsetHeight:0 };
+            e.stopPropagation();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (move) {
-                update(ref(db, `notes/${id}`), { x: start.l + (e.clientX - start.x), y: start.t + (e.clientY - start.y) });
+                const nx = start.l + (e.clientX - start.x), ny = start.t + (e.clientY - start.y);
+                note.style.left = nx + 'px'; note.style.top = ny + 'px';
+                update(ref(db, `notes/${id}`), { x: nx, y: ny });
             } else if (resize) {
-                update(ref(db, `notes/${id}`), { w: Math.max(200, start.w + (e.clientX - start.x)), h: Math.max(150, start.h + (e.clientY - start.y)) });
+                const nw = Math.max(200, start.w + (e.clientX - start.x)), nh = Math.max(150, start.h + (e.clientY - start.y));
+                note.style.width = nw + 'px'; note.style.height = nh + 'px';
+                update(ref(db, `notes/${id}`), { w: nw, h: nh });
             } else if (imgResize) {
-                const limit = Math.min(note.offsetWidth, note.offsetHeight) * 0.95;
+                const limit = Math.min(note.offsetWidth, note.offsetHeight) * 0.9;
                 let nw = Math.min(limit, start.iw + (e.clientX - start.x));
                 let nh = isShiftPressed ? nw / ratio : Math.min(limit, start.ih + (e.clientY - start.y));
                 update(ref(db, `notes/${id}`), { imgW: nw, imgH: nh });
@@ -255,19 +258,16 @@
         document.addEventListener('mouseup', () => { move = resize = imgResize = false; note.dataset.isInteracting = "false"; });
 
         note.addEventListener('click', (e) => {
-            if (e.target.classList.contains('palette-open')) {
-                realPicker.value = dataToHex(note.style.backgroundColor);
-                hexDisplay.value = realPicker.value.toUpperCase();
-                colorModal.style.display = 'flex';
+            if (e.target.classList.contains('color-dot')) update(ref(db, `notes/${id}`), { color: e.target.dataset.color });
+            if (e.target.id === 'color-picker') {
+                e.target.addEventListener('input', (ev) => update(ref(db, `notes/${id}`), { color: ev.target.value }));
             }
-            if (e.target.classList.contains('add-img-btn')) { window.currentImgId = id; document.getElementById('hidden-file-input').click(); }
-            if (e.target.classList.contains('del-img-btn')) { update(ref(db, `notes/${id}`), { img: "", imgW: 0, imgH: 0 }); e.target.style.display = 'none'; }
             if (e.target.classList.contains('del-note-btn')) remove(ref(db, `notes/${id}`));
+            if (e.target.classList.contains('add-img-btn')) { currentImgTargetId = id; document.getElementById('hidden-file-input').click(); }
         });
 
         note.addEventListener('dblclick', () => { note.classList.add('editing'); ta.focus(); });
         ta.addEventListener('blur', () => { note.classList.remove('editing'); update(ref(db, `notes/${id}`), { text: ta.value }); });
-        
         ta.addEventListener('wheel', (e) => {
             if (!note.classList.contains('editing')) return;
             e.preventDefault();
@@ -276,29 +276,24 @@
         }, { passive: false });
     }
 
-    // 사진 업로드 핸들러
     document.getElementById('hidden-file-input').addEventListener('change', (e) => {
         const file = e.target.files[0];
-        if (file && window.currentImgId) {
+        if (file && currentImgTargetId) {
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const img = new Image();
                 img.onload = () => {
-                    update(ref(db, `notes/${window.currentImgId}`), { img: ev.target.result, imgW: 150, imgH: (150/img.width)*img.height });
+                    const note = document.querySelector(`.note[data-id="${currentImgTargetId}"]`);
+                    const limit = Math.min(note.offsetWidth, note.offsetHeight) * 0.6;
+                    let w = img.width, h = img.height;
+                    if (w > limit) { h = (limit/w)*h; w = limit; }
+                    update(ref(db, `notes/${currentImgTargetId}`), { img: ev.target.result, imgW: w, imgH: h });
                 };
                 img.src = ev.target.result;
             };
             reader.readAsDataURL(file);
         }
     });
-
-    function dataToHex(rgb) {
-        if(!rgb || rgb.startsWith('#')) return rgb || '#ffffff';
-        const parts = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-        delete(parts[0]);
-        for (let i = 1; i <= 3; ++i) { parts[i] = parseInt(parts[i]).toString(16); if (parts[i].length == 1) parts[i] = '0' + parts[i]; }
-        return '#' + parts.join('');
-    }
 
     onChildAdded(notesRef, (s) => renderNote(s.key, s.val()));
     onChildChanged(notesRef, (s) => renderNote(s.key, s.val()));
