@@ -3,16 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <title>나만의 미니 패들렛</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #f0f0f0; font-family: sans-serif; }
+        #canvas { width: 5000px; height: 5000px; background-image: radial-gradient(#d1d1d1 1px, transparent 1px); background-size: 30px 30px; position: relative; }
+        #toolbar { position: fixed; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; }
+        button { padding: 10px 20px; background: #18a0fb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .note { position: absolute; width: 200px; min-height: 150px; background: white; border: 1px solid #ccc; box-shadow: 2px 5px 15px rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; cursor: move; }
+        .note textarea { width: 100%; height: 120px; border: none; resize: none; outline: none; font-size: 14px; background: transparent; cursor: inherit; }
+        .note.editing { cursor: default; box-shadow: 0 0 0 2px #18a0fb; }
+        .note.editing textarea { cursor: text; background: white; }
+    </style>
 </head>
 <body>
+
     <div id="toolbar">
         <button id="add-note">+ 메모 추가</button>
-        <span class="info">드래그해서 움직이세요!</span>
     </div>
-    
     <div id="canvas"></div>
 
-    <script src="script.js"></script>
+    <script type="module">
+        // 1. Firebase 라이브러리 로드
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // 2. 본인의 Config로 교체하세요!
+        const firebaseConfig = {
+ 	 apiKey: "AIzaSyCX4hr8AauLtShugeHdogIa9WlKG1GeLDA",
+  	authDomain: "japan-travel-b6597.firebaseapp.com",
+  	databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
+ 	 projectId: "japan-travel-b6597",
+ 	 storageBucket: "japan-travel-b6597.firebasestorage.app",
+ 	 messagingSenderId: "207320927993",
+  	appId: "1:207320927993:web:df014223249603767a1c28",
+  	measurementId: "G-QTGGD2L5RC"
+	};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const notesRef = ref(db, 'notes');
+
+        // 드래그 관련 변수
+        let isDragging = false;
+        let currentTarget = null;
+        let offset = { x: 0, y: 0 };
+
+        // 3. 메모 생성 함수 (핵심 로직 포함)
+        function createNote(x, y, text, id) {
+            const note = document.createElement('div');
+            note.className = 'note';
+            note.style.left = x + 'px';
+            note.style.top = y + 'px';
+            note.dataset.id = id;
+
+            note.innerHTML = `<textarea readonly>${text}</textarea>`;
+            const textarea = note.querySelector('textarea');
+
+            // [더블클릭] 편집 모드
+            note.addEventListener('dblclick', () => {
+                textarea.readOnly = false;
+                textarea.focus();
+                note.classList.add('editing');
+            });
+
+            // [포커스 아웃] 편집 완료 및 DB 업데이트
+            textarea.addEventListener('blur', () => {
+                textarea.readOnly = true;
+                note.classList.remove('editing');
+                update(ref(db, `notes/${id}`), { text: textarea.value });
+            });
+
+            // [마우스다운] 드래그 시작 (편집 중이 아닐 때만)
+            note.addEventListener('mousedown', (e) => {
+                if (!textarea.readOnly) return; 
+                isDragging = true;
+                currentTarget = note;
+                offset.x = e.clientX - note.offsetLeft;
+                offset.y = e.clientY - note.offsetTop;
+                note.style.zIndex = 1000;
+            });
+
+            document.getElementById('canvas').appendChild(note);
+        }
+
+        // 4. 버튼 클릭 시 DB에 전송
+        document.getElementById('add-note').addEventListener('click', () => {
+            push(notesRef, { x: 100, y: 100, text: "새 메모" });
+        });
+
+        // 5. DB에 추가되면 화면에 그리기
+        onChildAdded(notesRef, (snapshot) => {
+            const data = snapshot.val();
+            createNote(data.x, data.y, data.text, snapshot.key);
+        });
+
+        // 6. 전역 드래그 이벤트
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || !currentTarget) return;
+            const x = e.clientX - offset.x;
+            const y = e.clientY - offset.y;
+            currentTarget.style.left = x + 'px';
+            currentTarget.style.top = y + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging && currentTarget) {
+                // 드래그 종료 시 위치를 DB에 저장 (실시간 동기화)
+                const id = currentTarget.dataset.id;
+                update(ref(db, `notes/${id}`), {
+                    x: parseInt(currentTarget.style.left),
+                    y: parseInt(currentTarget.style.top)
+                });
+            }
+            isDragging = false;
+            currentTarget = null;
+        });
+    </script>
 </body>
 </html>
