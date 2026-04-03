@@ -2,54 +2,54 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>초미니 피그마-패들렛</title>
+    <title>진짜 피그마 패들렛</title>
     <style>
-        :root { --f-blue: #18a0fb; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: auto; background-color: #f0f0f0; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: auto; background-color: #e5e5e5; font-family: sans-serif; }
         
-        /* 무한 대지 배경 */
+        /* 무한 대지 */
         #canvas {
             width: 5000px; height: 5000px;
             background-image: radial-gradient(#d1d1d1 1px, transparent 1px);
             background-size: 30px 30px;
             position: relative;
-            cursor: crosshair;
         }
 
         #toolbar { position: fixed; top: 20px; left: 20px; z-index: 10000; }
-        button { padding: 12px 24px; background: var(--f-blue); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { padding: 12px 20px; background: #18a0fb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
-        /* 메모지 스타일 */
+        /* 포스트잇 스타일 - 투명 방지 위해 배경색 강제 설정 */
         .note {
             position: absolute;
-            width: 200px; height: 150px;
-            padding: 10px; border-radius: 4px;
-            box-shadow: 2px 5px 15px rgba(0,0,0,0.1);
             display: flex; flex-direction: column;
-            cursor: move; border: 1px solid rgba(0,0,0,0.05);
-            transition: box-shadow 0.2s;
+            padding: 10px; border-radius: 2px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.1);
+            cursor: grab;
+            overflow: hidden; /* 사이즈 조절 시 내용물 넘침 방지 */
         }
-        .note.editing { cursor: default; box-shadow: 0 0 0 2px var(--f-blue); }
+        .note:active { cursor: grabbing; }
+        .note.editing { cursor: default; box-shadow: 0 0 0 2px #18a0fb; }
         
-        /* 텍스트 영역 */
+        /* 텍스트 박스 - 포스트잇 크기에 맞춰 꽉 차게 */
         .note textarea {
             width: 100%; height: 100%;
-            border: none; resize: both; outline: none;
-            background: transparent; font-size: 16px;
-            overflow: hidden; cursor: inherit;
+            border: none; resize: none; outline: none;
+            background: transparent; font-family: inherit;
+            pointer-events: none; /* 평소엔 클릭 방지해서 드래그 방해 안 함 */
         }
+        .note.editing textarea { pointer-events: auto; }
 
-        /* 유저 커서 */
+        /* 전형적인 화살표 커서 모양 */
         .user-cursor {
-            position: absolute; width: 15px; height: 15px;
-            border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-            pointer-events: none; z-index: 9999; transition: all 0.1s linear;
+            position: absolute; width: 20px; height: 20px;
+            pointer-events: none; z-index: 9999;
+            transition: left 0.1s linear, top 0.1s linear;
         }
+        /* 화살표 아이콘 SVG */
+        .cursor-svg { width: 18px; height: 18px; fill: currentColor; stroke: white; stroke-width: 1px; }
         .cursor-label {
-            position: absolute; left: 15px; bottom: 15px; color: white;
-            padding: 2px 8px; border-radius: 4px; font-size: 10px;
-            transform: rotate(45deg); white-space: nowrap; font-weight: bold;
+            position: absolute; left: 15px; top: 15px; color: white;
+            padding: 2px 6px; border-radius: 3px; font-size: 11px; white-space: nowrap;
         }
     </style>
 </head>
@@ -60,30 +60,24 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, onChildChanged, update, set, onValue, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, onChildChanged, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // [필독] 여기 본인 Firebase 정보로 꼭 채우세요!
+        // [주의] 이 부분에 본인의 Firebase Config 정보를 넣으세요!
         const firebaseConfig = {
             apiKey: "본인꺼",
-            authDomain: "본인꺼",
             databaseURL: "https://japan-travel-b6597-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "japan-travel-b6597",
-            storageBucket: "본인꺼",
-            messagingSenderId: "본인꺼",
             appId: "본인꺼"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const notesRef = ref(db, 'notes');
-        const canvas = document.getElementById('canvas');
-
-        // 내 정보 설정
         const myId = Math.random().toString(36).substring(7);
         const myColor = `hsl(${Math.random() * 360}, 70%, 50%)`;
 
-        // 1. 실시간 커서 로직
-        canvas.addEventListener('mousemove', (e) => {
+        // 1. 실시간 커서 (전형적인 화살표 모양)
+        document.addEventListener('mousemove', (e) => {
             set(ref(db, `cursors/${myId}`), { x: e.pageX, y: e.pageY, color: myColor });
         });
 
@@ -95,76 +89,71 @@
                 if (!el) {
                     el = document.createElement('div');
                     el.id = `cursor-${id}`; el.className = 'user-cursor';
-                    el.innerHTML = `<div class="cursor-label">${id}</div>`;
+                    el.innerHTML = `
+                        <svg class="cursor-svg" viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.8 3.3 6.3-2.1 1.1-3.3-6.2-4.1 3.8z"/></svg>
+                        <div class="cursor-label">${id.substring(0,3)}</div>`;
                     document.body.appendChild(el);
                 }
-                el.style.backgroundColor = cursors[id].color;
+                el.style.color = cursors[id].color;
+                el.querySelector('.cursor-label').style.backgroundColor = cursors[id].color;
                 el.style.left = cursors[id].x + 'px'; el.style.top = cursors[id].y + 'px';
             }
         });
 
-        // 2. 메모 생성/수정 로직
-        const colors = ['#fff9c4', '#ffccbc', '#c8e6c9', '#bbdefb', '#f8bbd0'];
-        
+        // 2. 메모 생성
+        const colors = ['#FFF9C4', '#FFCCBC', '#C8E6C9', '#BBDEFB', '#F8BBD0'];
         document.getElementById('add-note').addEventListener('click', () => {
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
             push(notesRef, {
-                x: window.scrollX + 100, y: window.scrollY + 100,
-                w: 200, h: 150, fontSize: 16,
-                text: "새 메모 (더블클릭)", color: randomColor
+                x: 100, y: 100, w: 200, h: 150,
+                text: "내용 입력 (더블클릭)", color: colors[Math.floor(Math.random() * 5)]
             });
         });
 
-        function createOrUpdateNote(data, id) {
+        // 3. 메모 그리기 및 실시간 동기화
+        function syncNote(id, data) {
             let note = document.querySelector(`.note[data-id="${id}"]`);
             if (!note) {
                 note = document.createElement('div');
                 note.className = 'note'; note.dataset.id = id;
-                note.innerHTML = `<textarea readonly></textarea>`;
-                canvas.appendChild(note);
-                setupNoteEvents(note, id);
+                note.innerHTML = `<textarea></textarea>`;
+                document.getElementById('canvas').appendChild(note);
+                attachEvents(note, id);
             }
-            
-            // 데이터 동기화 (편집 중이 아닐 때만)
+
+            // 편집 중이 아닐 때만 위치/내용 동기화
             if (!note.classList.contains('editing')) {
                 note.style.left = data.x + 'px';
                 note.style.top = data.y + 'px';
                 note.style.width = data.w + 'px';
                 note.style.height = data.h + 'px';
-                note.style.backgroundColor = data.color;
-                const txt = note.querySelector('textarea');
-                txt.value = data.text;
-                txt.style.fontSize = (data.fontSize || 16) + 'px';
+                note.style.backgroundColor = data.color; // 색상 적용
+                note.querySelector('textarea').value = data.text;
             }
         }
 
-        function setupNoteEvents(note, id) {
+        function attachEvents(note, id) {
             const textarea = note.querySelector('textarea');
             let isMoving = false; let offset = {x:0, y:0};
 
+            // 더블클릭 -> 편집모드
             note.addEventListener('dblclick', () => {
-                note.classList.add('editing'); textarea.readOnly = false; textarea.focus();
+                note.classList.add('editing');
+                textarea.focus();
             });
 
+            // 포커스 아웃 -> 저장 (텍스트 + 현재 크기)
             textarea.addEventListener('blur', () => {
-                note.classList.remove('editing'); textarea.readOnly = true;
+                note.classList.remove('editing');
                 update(ref(db, `notes/${id}`), { 
-                    text: textarea.value, 
-                    w: note.offsetWidth - 20, h: note.offsetHeight - 20,
-                    fontSize: parseInt(textarea.style.fontSize) || 16 
+                    text: textarea.value,
+                    w: note.offsetWidth - 20, 
+                    h: note.offsetHeight - 20
                 });
             });
 
-            // 휠로 글씨 크기 조절 (피그마 느낌)
-            textarea.addEventListener('wheel', (e) => {
-                if (!note.classList.contains('editing')) return;
-                e.preventDefault();
-                let currentSize = parseInt(window.getComputedStyle(textarea).fontSize);
-                textarea.style.fontSize = (e.deltaY < 0 ? currentSize + 1 : currentSize - 1) + 'px';
-            });
-
+            // 드래그 로직
             note.addEventListener('mousedown', (e) => {
-                if (!textarea.readOnly) return;
+                if (note.classList.contains('editing')) return;
                 isMoving = true;
                 offset = { x: e.clientX - note.offsetLeft, y: e.clientY - note.offsetTop };
                 note.style.zIndex = 1000;
@@ -172,23 +161,23 @@
 
             document.addEventListener('mousemove', (e) => {
                 if (!isMoving) return;
-                note.style.left = (e.clientX - offset.x) + 'px';
-                note.style.top = (e.clientY - offset.y) + 'px';
+                const newX = e.clientX - offset.x;
+                const newY = e.clientY - offset.y;
+                note.style.left = newX + 'px';
+                note.style.top = newY + 'px';
+                // 드래그 중 실시간 위치 전송 (다른 브라우저 동기화 핵심)
+                update(ref(db, `notes/${id}`), { x: newX, y: newY });
             });
 
             document.addEventListener('mouseup', () => {
-                if (isMoving) {
-                    update(ref(db, `notes/${id}`), { x: parseInt(note.style.left), y: parseInt(note.style.top) });
-                    isMoving = false; note.style.zIndex = 1;
-                }
+                isMoving = false;
+                note.style.zIndex = 1;
             });
         }
 
         // Firebase 리스너
-        onChildAdded(notesRef, (s) => createOrUpdateNote(s.val(), s.key));
-        onChildChanged(notesRef, (s) => createOrUpdateNote(s.val(), s.key));
-        
-        // 나갈 때 내 커서 지우기
+        onChildAdded(notesRef, (s) => syncNote(s.key, s.val()));
+        onChildChanged(notesRef, (s) => syncNote(s.key, s.val()));
         window.onbeforeunload = () => set(ref(db, `cursors/${myId}`), null);
     </script>
 </body>
